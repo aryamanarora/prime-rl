@@ -53,6 +53,7 @@ def inference(config: Config):
     )
     tokenizer = llm.get_tokenizer()
     sampling_params = SamplingParams(**config.sampling.model_dump())
+    calibration_sampling_params = SamplingParams(**{**config.sampling.model_dump(), "n": config.calibration_n})
 
     # Create communication for pipeline
     if config.pp.world_size > 1:
@@ -219,10 +220,7 @@ def inference(config: Config):
         request_outputs = llm.generate(prompts, sampling_params, use_tqdm=False)
         end_time = time.time()
         
-        n = sampling_params.n
-        sampling_params.n = sampling_params.calibration_n
-        request_calibration_outputs = llm.generate(calibration_prompts, sampling_params, use_tqdm=False)
-        sampling_params.n = n
+        request_calibration_outputs = llm.generate(calibration_prompts, calibration_sampling_params, use_tqdm=False)
 
         # Dropping like this isnt ideal. But in practice, we shouldnt have any prompts that are too long.
         request_outputs = [req for req in request_outputs if len(req.outputs[0].token_ids) > 0]
