@@ -1,4 +1,5 @@
 from typing import Dict
+from zeroband.inference.genesys.math_utils import extract_answer
 
 def grade_answer_calibration(model_answer: int, true_passrate: float, eps: int = 10) -> bool:
     """
@@ -21,6 +22,8 @@ def compute_calibration_reward(completion: str, verification_info: Dict) -> int:
 
     # Model must answer with passrate between 0 and 100
     # TODO: edit this if answer formatting instructions change in prompt
+    if "\\boxed" in model_solution:
+        model_solution = extract_answer(model_solution)        
     try:
         model_answer = int(model_solution)
         assert 0 <= model_answer <= 100
@@ -37,3 +40,9 @@ def compute_calibration_reward(completion: str, verification_info: Dict) -> int:
         return 1
 
     return 0
+
+
+
+if __name__ == '__main__':
+    out = compute_calibration_reward("hello \\boxed{15}", dict(passrate=14))
+    print(out)

@@ -198,7 +198,7 @@ def inference(config: Config):
             # TODO: use same prompt as in evals
             calibration_prompt = lambda question: f"Here is a question: ```english\n{question}\n```\nDo not answer the above question. Instead, please estimate the percentage of the time you'd get it correct if I asked you several times. Respond with a single integer between 0 and 100."
             calibration_messages = [
-                [{"role": "user", "content": calibration_prompt(item['question'])}, {"role": "assistant", "content": "<think>\n"}]
+                [{"role": "user", "content": calibration_prompt(item['prompt'])}, {"role": "assistant", "content": "<think>\n"}]
                 for item, length_prompt in zip(batch, length_prompt_additions)
             ]
 
@@ -259,7 +259,7 @@ def inference(config: Config):
         logger.info(f"Computed rewards and advantages in in {time.time() - start:.2f}s")
 
         # Compute calibration rewards
-        calibration_verification_infos = [{"passrate": calculate_passrate(request)} for request in request_rewards]
+        calibration_verification_infos = [{**ver_info, "passrate": calculate_passrate(request)} for request, ver_info in zip(request_rewards, verification_infos)]
         calibration_task_types = ["calibration"] * len(request_rewards)
         request_calibration_rewards = compute_rewards(request_calibration_outputs, calibration_verification_infos, calibration_task_types, config.len_reward)
 
