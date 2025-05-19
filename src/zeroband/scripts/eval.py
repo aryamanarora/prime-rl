@@ -24,7 +24,7 @@ def evaluate(
     messages = [[{"role": "user", "content": item["prompt"]}, {"role": "assistant", "content": "<think>\n"}] for item in batch]
     if tokenizer.chat_template:
         prompts = tokenizer.apply_chat_template(messages, tokenize=False, continue_final_message=True)
-    verification_infos = [json.loads(item["verification_info"]) for item in batch]
+    verification_infos = [{**json.loads(item["verification_info"]), "target_length": 0} for item in batch]
     task_types = [item["task_type"] for item in batch]
 
     # generate responses and get verification info
@@ -34,10 +34,14 @@ def evaluate(
     # get rewards (no length reward)
     request_rewards = compute_rewards(request_outputs, verification_infos, task_types, None)
 
-    # get passrate
+    # store rewards
     passrate = [sum(rewards) / len(rewards) for rewards in request_rewards]
+    with open(f"passrates.json", "w") as f:
+        json.dump(passrate, f)
+
+    # get overall passrate
     avg_passrate = sum(passrate) / len(passrate)
-    print(f"Average passrate: {avg_passrate}")
+    print(f"Average passrate: {avg_passrate:.4%}")
 
 
 if __name__ == "__main__":
