@@ -13,7 +13,8 @@ class SamplingParamConfig(BaseConfig):
     max_tokens: int | None = None
     ignore_eos: bool = False
     top_p: float = 1
-    n: int = 8
+    n: int = 64
+    calibration_n: int = 8
     logprobs: int = 0  # 0 mean 1 logprob here
     top_k: int = -1
 
