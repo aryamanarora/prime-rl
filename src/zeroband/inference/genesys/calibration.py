@@ -2,11 +2,11 @@ from typing import Dict
 
 def grade_answer_calibration(model_answer: int, true_passrate: float, eps: int = 10) -> bool:
     """
-    Check if the model's answer is within eps% of the true passrate.
+    Check if the model's answer (a number between 0 and 100) is within eps% of the true passrate.
     """
-    if model_answer < true_passrate - eps or model_answer > true_passrate + eps:
-        return False
-    return True
+    if abs(model_answer - (true_passrate * 100)) <= eps:
+        return True
+    return False
 
 
 def compute_calibration_reward(completion: str, verification_info: Dict) -> int:
