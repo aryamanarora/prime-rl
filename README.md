@@ -4,6 +4,19 @@ prime-rl is a codebase for decentralized RL training at scale.
 
 
 
+## RL Calibration Experiments
+
+train process:
+```
+uv run python src/zeroband/infer.py @ configs/inference/rl_calibration_math.toml
+```
+
+inference process:
+```
+uv  run torchrun --nproc_per_node=2 src/zeroband/train.py @ configs/training/rl_calibration_math.toml --data.num_workers 2                                                   
+```
+
+
 ## install
 quick install
 ```
