@@ -52,8 +52,8 @@ def inference(config: Config):
         dtype="bfloat16" if config.dtype == "bf16" else torch.float32,
     )
     tokenizer = llm.get_tokenizer()
-    sampling_params = SamplingParams(**config.sampling.model_dump())
-    calibration_sampling_params = SamplingParams(**{**config.sampling.model_dump(), "n": config.calibration_n})
+    calibration_sampling_params = SamplingParams(**config.sampling.model_dump())
+    sampling_params = SamplingParams(**{**config.sampling.model_dump(), "n": config.calibration_n})
 
     # Create communication for pipeline
     if config.pp.world_size > 1:
@@ -197,9 +197,11 @@ def inference(config: Config):
             ]
 
             # TODO: use same prompt as in evals
-            calibration_prompt = lambda question: f"Here is a question: ```english\n{question}\n```\nDo not answer the above question. Instead, please estimate the percentage of the time you'd get it correct if I asked you several times. Respond with a single integer between 0 and 100."
+            calibration_prompt = (
+                lambda question: f"Here is a question: ```english\n{question}\n```\nDo not answer the above question. Instead, please estimate the percentage of the time you'd get it correct if I asked you several times. Respond with a single integer between 0 and 100."
+            )
             calibration_messages = [
-                [{"role": "user", "content": calibration_prompt(item['prompt'])}, {"role": "assistant", "content": "<think>\n"}]
+                [{"role": "user", "content": calibration_prompt(item["prompt"])}, {"role": "assistant", "content": "<think>\n"}]
                 for item, length_prompt in zip(batch, length_prompt_additions)
             ]
 
@@ -219,7 +221,7 @@ def inference(config: Config):
         start_time = time.time()
         request_outputs = llm.generate(prompts, sampling_params, use_tqdm=False)
         end_time = time.time()
-        
+
         request_calibration_outputs = llm.generate(calibration_prompts, calibration_sampling_params, use_tqdm=False)
 
         # Dropping like this isnt ideal. But in practice, we shouldnt have any prompts that are too long.
@@ -261,9 +263,13 @@ def inference(config: Config):
         logger.info(f"Computed rewards and advantages in in {time.time() - start:.2f}s")
 
         # Compute calibration rewards
-        calibration_verification_infos = [{**ver_info, "passrate": calculate_passrate(request)} for request, ver_info in zip(request_rewards, verification_infos)]
+        calibration_verification_infos = [
+            {**ver_info, "passrate": calculate_passrate(request)} for request, ver_info in zip(request_rewards, verification_infos)
+        ]
         calibration_task_types = ["calibration"] * len(request_rewards)
-        request_calibration_rewards = compute_rewards(request_calibration_outputs, calibration_verification_infos, calibration_task_types, config.len_reward)
+        request_calibration_rewards = compute_rewards(
+            request_calibration_outputs, calibration_verification_infos, calibration_task_types, config.len_reward
+        )
 
         table = get_parquet_table(
             request_calibration_outputs,
