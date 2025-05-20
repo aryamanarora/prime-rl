@@ -165,7 +165,7 @@ def inference(config: Config):
             batch = dataset.select(indexes)
         else:
             batch = dataset.select(range(i, min(i + config.batch_size, len(dataset))))
-        messages = [[{"role": "user", "content": item["prompt"]}, {"role": "assistant", "content": "<think>\n"}] for item in batch]
+        messages = [[{"role": "user", "content": item["prompt"]}] for item in batch]
 
         length_prompt_additions, target_lengths = generate_target_length_prompts(config.len_reward, len(batch))
         # Assume verification_info is stored as a JSON string in the dataset.
@@ -181,33 +181,33 @@ def inference(config: Config):
                     [
                         {"role": "system", "content": length_prompt},
                         {"role": "user", "content": item["prompt"]},
-                        {"role": "assistant", "content": "<think>\n"},
                     ]
                     for item, length_prompt in zip(batch, length_prompt_additions)
                 ]
             else:
                 messages = [
-                    [{"role": "user", "content": item["prompt"] + length_prompt}, {"role": "assistant", "content": "<think>\n"}]
+                    [{"role": "user", "content": item["prompt"] + length_prompt}]
                     for item, length_prompt in zip(batch, length_prompt_additions)
                 ]
         else:
             messages = [
-                [{"role": "user", "content": item["prompt"]}, {"role": "assistant", "content": "<think>\n"}]
+                [{"role": "user", "content": item["prompt"]}]
                 for item, length_prompt in zip(batch, length_prompt_additions)
             ]
 
             # TODO: use same prompt as in evals
             calibration_prompt = (
-                lambda question: f"Here is a question: ```english\n{question}\n```\nDo not answer the above question. Instead, please estimate the percentage of the time you'd get it correct if I asked you several times. Respond with a single integer between 0 and 100."
+                lambda question: f"Below, you are given a challenging question. DO NOT ANSWER THE QUESTION. Instead, estimate how difficult the question is and return a confidence score between 0 and 100 indicating how sure you are that you would be able to solve the question correctly. If you think the question is super easy, you should return 100, if you could never solve it, you should return 0. Here is the question: ```english\n{question}\n```\nNow, please estimate and return your confidence score. Respond with a single integer between 0 and 100 inside of \\boxed"
             )
             calibration_messages = [
-                [{"role": "user", "content": calibration_prompt(item["prompt"])}, {"role": "assistant", "content": "<think>\n"}]
+                [{"role": "user", "content": calibration_prompt(item["prompt"])}]
                 for item, length_prompt in zip(batch, length_prompt_additions)
             ]
 
         if tokenizer.chat_template:
-            prompts = tokenizer.apply_chat_template(messages, tokenize=False, continue_final_message=True)
-            calibration_prompts = tokenizer.apply_chat_template(calibration_messages, tokenize=False, continue_final_message=True)
+            prompts = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
+            calibration_prompts = tokenizer.apply_chat_template(calibration_messages, add_generation_prompt=True, enable_thinking=True, tokenize=False)
+            
             if config.model_name != "Qwen/QwQ-32B":
                 for i, p in enumerate(prompts):
                     prompts[i] = p.replace("<｜begin▁of▁sentence｜>", "")
@@ -270,13 +270,16 @@ def inference(config: Config):
         request_calibration_rewards = compute_rewards(
             request_calibration_outputs, calibration_verification_infos, calibration_task_types, config.len_reward
         )
-
+        
+        passrates = [v["passrate"] for v in calibration_verification_infos]
+                
         table = get_parquet_table(
             request_calibration_outputs,
             request_calibration_rewards,
             proofs,
             ckpt_step,
             target_lengths,
+            passrates
         )
 
         step_path = Path(config.output_path) / f"step_{real_step}"

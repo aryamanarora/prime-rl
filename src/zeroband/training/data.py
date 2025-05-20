@@ -249,6 +249,7 @@ class ParquetDataset(IterableDataset):
                 "task_rewards",
                 "length_penalties",
                 "target_lengths",
+                "passrates"
             ]
 
             scanner = dataset.scanner(columns=required_columns, batch_size=self._pq_read_bs)
@@ -264,6 +265,7 @@ class ParquetDataset(IterableDataset):
                         task_reward,
                         length_penalty,
                         target_length,
+                        passrates
                     ) in zip(
                         batch["input_tokens"],
                         batch["output_tokens"],
@@ -272,6 +274,7 @@ class ParquetDataset(IterableDataset):
                         batch["task_rewards"],
                         batch["length_penalties"],
                         batch["target_lengths"],
+                        batch["passrates"]
                     ):
                         counter += 1
                         if _should_skip_index(
@@ -303,6 +306,7 @@ class ParquetDataset(IterableDataset):
                                 "task_rewards": task_reward.as_py(),
                                 "length_penalties": length_penalty.as_py(),
                                 "target_lengths": target_length.as_py(),
+                                "passrates": passrates.as_py()
                             }
 
                         except Exception as e:
@@ -381,6 +385,7 @@ class BatchOutput(TypedDict):
     task_rewards: Float[torch.Tensor, "sample"]
     length_penalties: Float[torch.Tensor, "sample"]
     target_lengths: Int[torch.Tensor, "sample"]
+    passrates: Float[torch.Tensor, "sample"]
 
 
 ### colate
@@ -401,6 +406,7 @@ def collate_fn(samples: list[DatasetOutput], max_seq_len: int, pad_token_id: int
     task_rewards = [sample["task_rewards"] for sample in samples]
     length_penalties = [sample["length_penalties"] for sample in samples]
     target_lengths = [sample["target_lengths"] for sample in samples]
+    passrates = [sample["passrates"] for sample in samples]
 
     seq_lens = [len(sample["input_ids"]) for sample in samples]
     position_ids = [torch.arange(0, len(sample["input_ids"]), dtype=torch.int32) for sample in samples]
@@ -425,6 +431,7 @@ def collate_fn(samples: list[DatasetOutput], max_seq_len: int, pad_token_id: int
         "task_rewards": torch.tensor(task_rewards),
         "length_penalties": torch.tensor(length_penalties),
         "target_lengths": torch.tensor(target_lengths),
+        "passrates": torch.tensor(passrates)
     }
 
 
@@ -520,6 +527,7 @@ def merge_batches_padding(batches: list[BatchOutput]) -> list[BatchOutput]:
         "task_rewards": torch.cat([b["task_rewards"] for b in batches]),
         "length_penalties": torch.cat([b["length_penalties"] for b in batches]),
         "target_lengths": torch.cat([b["target_lengths"] for b in batches]),
+        "passrates": torch.cat([b["passrates"] for b in batches]),
     }
 
 

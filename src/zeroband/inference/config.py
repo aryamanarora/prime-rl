@@ -36,9 +36,10 @@ class Config(BaseConfig):
     download_dir: str | None = None
 
     quant: Literal["fp8"] | None = None
+    
+    calibration_n: int = 8
 
     sampling: SamplingParamConfig = SamplingParamConfig()
-    calibration_n: int = 8
     enforce_eager: bool = False
     max_model_len: int | None = None
 

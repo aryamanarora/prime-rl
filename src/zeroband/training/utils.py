@@ -265,6 +265,9 @@ def log_to_wandb(
             "time_data_loading",
             "time_packing",
         ],
+        "passrates/": [
+            "passrates"
+        ]
     }
 
     # Add metrics to respective groups
