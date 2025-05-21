@@ -1,16 +1,21 @@
 from typing import Dict
 from zeroband.inference.genesys.math_utils import extract_answer
 
-def grade_answer_calibration(model_answer: int, true_passrate: float, eps: int = 10) -> bool:
-    """
-    Check if the model's answer (a number between 0 and 100) is within eps% of the true passrate.
-    """
-    if abs(model_answer - (true_passrate * 100)) <= eps:
-        return True
-    return False
+def grade_answer_calibration(model_answer: int, true_passrate: float) -> float:
+    error = abs(model_answer - (true_passrate * 100))
+    
+    # hardcoded rn, might be improved 
+    if error <= 5:
+        return 1.0
+    elif error <= 10:
+        return 0.5
+    elif error <= 25:
+        return 0.2
+    else:
+        return 0.0
 
 
-def compute_calibration_reward(completion: str, verification_info: Dict) -> int:
+def compute_calibration_reward(completion: str, verification_info: Dict) -> float:
     model_response = completion
     true_passrate = verification_info["passrate"]
 
@@ -31,16 +36,14 @@ def compute_calibration_reward(completion: str, verification_info: Dict) -> int:
         return 0
     except AssertionError:
         return 0
+    # this happens if extract_answer returns None
+    except TypeError:
+        return 0
 
     if true_passrate is None:
         return 0
 
-    is_correct = grade_answer_calibration(model_answer, true_passrate)
-    if is_correct:
-        return 1
-
-    return 0
-
+    return grade_answer_calibration(model_answer, true_passrate)
 
 
 if __name__ == '__main__':

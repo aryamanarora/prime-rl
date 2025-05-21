@@ -289,7 +289,7 @@ def train(config: Config):
                 max_tokens = input_ids.shape[0] * input_ids.shape[1]
 
                 loss_mask = batch["loss_mask"]
-
+                
                 ## correct aggregated metrics
                 for rewards in batch["rewards"]:
                     metric_averager.update("sample_reward", rewards)
@@ -301,6 +301,8 @@ def train(config: Config):
                     metric_averager.update("length_penalties", length_penalties)
                 for target_lengths in batch["target_lengths"]:
                     metric_averager.update("target_lengths", target_lengths)
+                for passrates in batch["passrates"]:
+                    metric_averager.update("passrates", passrates)
 
                 ## per micro batch metrics
 
