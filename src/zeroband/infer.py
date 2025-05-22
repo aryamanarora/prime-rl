@@ -190,24 +190,21 @@ def inference(config: Config):
                     for item, length_prompt in zip(batch, length_prompt_additions)
                 ]
         else:
-            messages = [
-                [{"role": "user", "content": item["prompt"]}]
-                for item, length_prompt in zip(batch, length_prompt_additions)
-            ]
+            messages = [[{"role": "user", "content": item["prompt"]}] for item, length_prompt in zip(batch, length_prompt_additions)]
 
             # TODO: use same prompt as in evals
-            calibration_prompt = (
-                lambda question: f"Below, you are given a challenging question. DO NOT ANSWER THE QUESTION. Instead, estimate how difficult the question is and return a confidence score between 0 and 100 indicating how sure you are that you would be able to solve the question correctly. If you think the question is super easy, you should return 100, if you could never solve it, you should return 0. Here is the question: ```english\n{question}\n```\nNow, please estimate and return your confidence score. Respond with a single integer between 0 and 100 inside of \\boxed"
-            )
+            calibration_prompt = "Below, you are given a question. DO NOT ANSWER THE QUESTION. Instead, estimate how difficult the question is and return a confidence score between 0.0 and 1.0 indicating how sure you are that you would be able to solve the question correctly. If you think the question is extremely easy, you should return 1.0, if you could never solve it, you should return 0.0. Here is the question:\n\n```english\n%s\n```\n\nNow, please estimate and return your confidence score. Respond with a single value in the range 0.0 to 1.0, inside of \\boxed."
             calibration_messages = [
-                [{"role": "user", "content": calibration_prompt(item["prompt"])}]
+                [{"role": "user", "content": calibration_prompt % item["prompt"]}]
                 for item, length_prompt in zip(batch, length_prompt_additions)
             ]
 
         if tokenizer.chat_template:
             prompts = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=True)
-            calibration_prompts = tokenizer.apply_chat_template(calibration_messages, add_generation_prompt=True, enable_thinking=True, tokenize=False)
-            
+            calibration_prompts = tokenizer.apply_chat_template(
+                calibration_messages, add_generation_prompt=True, enable_thinking=True, tokenize=False
+            )
+
             if config.model_name != "Qwen/QwQ-32B":
                 for i, p in enumerate(prompts):
                     prompts[i] = p.replace("<｜begin▁of▁sentence｜>", "")
@@ -219,10 +216,10 @@ def inference(config: Config):
             calibration_prompts = fake_chat_template(calibration_messages)
 
         start_time = time.time()
-        request_outputs = llm.generate(prompts, sampling_params, use_tqdm=False)
+        request_outputs = llm.generate(prompts, sampling_params, use_tqdm=True)
         end_time = time.time()
 
-        request_calibration_outputs = llm.generate(calibration_prompts, calibration_sampling_params, use_tqdm=False)
+        request_calibration_outputs = llm.generate(calibration_prompts, calibration_sampling_params, use_tqdm=True)
 
         # Dropping like this isnt ideal. But in practice, we shouldnt have any prompts that are too long.
         request_outputs = [req for req in request_outputs if len(req.outputs[0].token_ids) > 0]
@@ -270,17 +267,10 @@ def inference(config: Config):
         request_calibration_rewards = compute_rewards(
             request_calibration_outputs, calibration_verification_infos, calibration_task_types, config.len_reward
         )
-        
+
         passrates = [v["passrate"] for v in calibration_verification_infos]
-                
-        table = get_parquet_table(
-            request_calibration_outputs,
-            request_calibration_rewards,
-            proofs,
-            ckpt_step,
-            target_lengths,
-            passrates
-        )
+
+        table = get_parquet_table(request_calibration_outputs, request_calibration_rewards, proofs, ckpt_step, target_lengths, passrates)
 
         step_path = Path(config.output_path) / f"step_{real_step}"
         os.makedirs(step_path, exist_ok=True)
